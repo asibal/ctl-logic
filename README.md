@@ -4,6 +4,12 @@ CTL-Logic is an additional UI layer built on top of the [CTL-1 custom firmware (
 
 Everything from the original CTL-1 custom firmware is still there. Press the Home button to switch between the CTL-Logic and CTL-1 interface.
 
+[Try it in the browser](https://asibal.github.io/ctl-logic/emu/)
+
+[Install from the browser](https://asibal.github.io/ctl-logic/install/)
+
+**Install at your own risk.** I have only tried this on my own device. Install the official v15 firmware before installing this. I suggest using [FM-1 Backup & Restore](https://github.com/workeffortwaste/fm1-backup-restore/) (Android) to make sure you can backup and restore your own device before installing any custom firmware.
+
 ![CTL-Logic on the M-Vave FM-1](docs/img/ctl-logic-small.png)
 
 **Main Features**
