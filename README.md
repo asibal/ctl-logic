@@ -4,6 +4,8 @@ CTL-Logic is an additional UI layer built on top of the [CTL-1 custom firmware (
 
 Everything from the original CTL-1 custom firmware is still there. Press the Home button to switch between the CTL-Logic and CTL-1 interface.
 
+![CTL-Logic on the M-Vave FM-1](docs/img/ctl-logic-small.png)
+
 **Main Features**
 - Main screen displays the current channel name in large font and custom color. You will know your current channel by just glancing.
 - Channel names and colors are editable (16 channels) . No need to remember channel numbers.
