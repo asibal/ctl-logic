@@ -1,4 +1,26 @@
-# CTL-1 for the M-VAVE FM-1
+# CTL-Logic
+
+CTL-Logic is an additional UI layer built on top of the [CTL-1 custom firmware (by charlesvestal)](https://github.com/charlesvestal/fm1-ctl). I added features that make it more usable as a portable midi controller/control surface for audio/mixing (DAW's like Logic Pro, Reaper, etc) and video editing. Midi out via USB and/or BLE.
+
+Everything from the CTL-1 custom firmware is included. Just press the Home button to switch between the CTL-Logic and CTL-1 interface.
+
+**Main Features**
+Main screen displays the current channel name in large font and custom color. You will know your current channel by just glancing.
+Channel names and colors are editable (16 channels) . No need to remember channel numbers.
+
+**Maximize the rotary encoders**
+Knobs 1-4 have editable CC
+4 banks with quick bank switcher buttons
+Select & Algorithm knob have hardcoded CC's.
+Preset knob as channel switcher (1-16)
+All knobs send relative values (2's complement format)
+
+**All buttons send CC's**
+All buttons send CC's, including the keyboard midi buttons (hardcoded CC's). Keyboard midi notes still work on CTL-1 Play Mode.
+
+# Everything below is from the original CTL-1 project:
+
+# CTL-1 for the M-VAVE FM-1 
 
 CTL-1 turns the M-VAVE FM-1 into a MIDI controller. The keys play notes, with velocity and aftertouch read
 from the keys themselves, in any scale with its chords under the black keys; the knobs send controllers in four banks; an arpeggiator and a four-track
