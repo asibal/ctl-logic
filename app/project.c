@@ -9,6 +9,27 @@ project_t proj;
 static const uint8_t CC_DEFAULT[NBANKS][NKNOBS] = {{74, 71, 1, 7}, {73, 72, 75, 76}, {16, 17, 18, 19}, {20, 21, 22, 23}};
 /* the sequencer: General MIDI drums (kick, snare, closed hat, clap) */
 static const uint8_t TRK_DEFAULT[NTRACKS][4] = {{16, 4, 0, 36}, {16, 2, 4, 38}, {16, 8, 0, 42}, {12, 3, 2, 39}};
+/* channel names: first 5 alphanumeric characters of the original chan_names[], special chars stripped */
+// should be strictly 5 characters each + 1 byte for color index (0-6).
+// the trailing spaces will be striped when displayed
+static const char CHAN_NAME_DEFAULT[16][6] = {
+    {'L', 'O', 'G', 'I', 'C', 0},  /* LOGIC: K_BLUE   (0) */
+    {'T', 'R', 'A', 'C', 'K', 3},  /* TRACK: K_RED    (3) */
+    {'S', 'E', 'N', 'D', ' ', 1},  /* SEND : K_TEAL   (1) */
+    {'S', 'M', 'A', 'R', 'T', 4},  /* SMART: K_ORANGE (4) */
+    {'E', 'Q', ' ', '1', ' ', 2},  /* EQ 1 : K_GREEN  (2) */
+    {'E', 'Q', ' ', '2', ' ', 5},  /* EQ 2 : K_GREY   (5) */
+    {'E', 'Q', ' ', '3', ' ', 6},  /* EQ 3 : K_BLACK  (6) */
+    {'C', 'M', 'P', ' ', '1', 0},  /* CMP 1: K_BLUE   (0) */
+    {'C', 'M', 'P', ' ', '2', 3},  /* CMP 2: K_RED    (3) */
+    {'C', 'M', 'P', ' ', '3', 1},  /* CMP 3: K_TEAL   (1) */
+    {'A', 'M', 'P', ' ', ' ', 4},  /* AMP  : K_ORANGE (4) */
+    {'G', 'L', 'O', 'W', ' ', 2},  /* GLOW : K_GREEN  (2) */
+    {'G', 'A', 'I', 'N', ' ', 5},  /* GAIN : K_GREY   (5) */
+    {'E', 'X', 'T', 'R', 'A', 6},  /* EXTRA: K_BLACK  (6) */
+    {'V', 'I', 'D', 'E', 'O', 0},  /* VIDEO: K_BLUE   (0) */
+    {'R', 'E', 'C', ' ', ' ', 3}   /* REC  : K_RED    (3) */
+};
 
 /* hits spread as evenly as possible over steps (the Euclidean rhythm), turned right by rot */
 uint16_t euclid(int steps, int hits, int rot)
@@ -38,7 +59,10 @@ void project_defaults(void)
             proj.val[b][k] = CC_DEFAULT[b][k] == 7 ? 100 : CC_DEFAULT[b][k] == 1 ? 0 : 64;
         }
     proj.scale = 0;                              /* chromatic: the keys as a keyboard (root C for a scale) */
+    // set default knob bank to C (logic mode)
+    proj.bank = 2;
     proj.tempo = 120;
+    proj.clock = CLK_EXT;
     proj.arp_rate = RATE_16;
     proj.arp_oct = 1;
     proj.seq_ch = 9;                             /* channel 10 */
@@ -53,6 +77,8 @@ void project_defaults(void)
         t->note = TRK_DEFAULT[k][3];
         t->pat = euclid(t->steps, t->hits, t->rot);
     }
+    for (k = 0; k < 16; k++)
+        memcpy(proj.chan_name[k], CHAN_NAME_DEFAULT[k], 6);
 }
 
 static int project_valid(void)
@@ -77,6 +103,16 @@ static int project_valid(void)
         if (t->steps < 1u || t->steps > 16u || t->hits > t->steps || t->rot >= t->steps || t->note > 127u ||
             t->mute > 1u)
             return 0;
+    }
+    for (k = 0; k < 16; k++) {
+        int j;
+        if ((uint8_t)proj.chan_name[k][5] > 6u)
+            return 0;
+        for (j = 0; j < 5; j++) {
+            char c = proj.chan_name[k][j];
+            if (!((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == ' '))
+                return 0;
+        }
     }
     return 1;
 }

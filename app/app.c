@@ -63,14 +63,14 @@ void app_input_only(void) { ui_input_only(); }
 void app_say(const char *a, const char *b) { ui_say(a, b); }
 void app_splash(void)                    /* ui.c's paper and ink */
 {
-    lcd_fill(0, 0, 240, 240, RGB(251, 248, 241));
-    cv_begin(240, 64, RGB(251, 248, 241));
+    lcd_fill(0, 0, 240, 240, RGB(255, 255, 255));
+    cv_begin(240, 64, RGB(255, 255, 255));
     {
         int32_t w = text_w(&FONT_L, APP_NAME);
-        cv_text((240 - w) / 2, 0, &FONT_L, APP_NAME, RGB(30, 43, 90));
-        cv_rect((240 - w) / 2, 37, w, 2, RGB(229, 72, 46));
-        w = text_w(&FONT_S, APP_TAGLINE);
-        cv_text((240 - w) / 2, 44, &FONT_S, APP_TAGLINE, RGB(122, 128, 152));
+        cv_text((240 - w) / 2, 0, &FONT_L, APP_NAME, RGB(49, 5, 210));
+        // cv_rect((240 - w) / 2, 37, w, 2, RGB(255, 251, 55));
+        // w = text_w(&FONT_S, APP_TAGLINE);
+        // cv_text((240 - w) / 2, 44, &FONT_S, APP_TAGLINE, RGB(255, 255, 255));
     }
     cv_blit(0, 92);
 }

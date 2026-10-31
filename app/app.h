@@ -7,8 +7,8 @@
 #include "plat.h"
 #include "gm.h"
 
-#define APP_NAME "CTL-1"
-#define APP_TAGLINE "A MIDI controller for the FM-1"
+#define APP_NAME "CTL-Logic"
+#define APP_TAGLINE "Based on CTL-1"
 #define APP_BLOCK 256u                   /* the GM synth's block: 5.8 ms at 44.1 kHz */
 
 /* the store: the settings at 0xFC000 (Felucca's FL_GLOB), the panel calibration at 0xDC000, the Bluetooth stack's
@@ -22,7 +22,7 @@ enum { OBJ_PROJ, OBJ_PANEL, OBJ_BLE, OBJ_NOBJ };
 void ctl_send(uint32_t pkt, uint32_t to);   /* to: TO_USB | TO_BLE (and TO_SYNTH, TO_NOSYNTH); main loop or the tick.
                                           * Ctl's own notes (to USB or BLE) also play the synth */
 #define PROJ_MAGIC 0x4C544331u           /* "CTL1" */
-#define PROJ_FORMAT 2u                   /* 2: banks, scale, arpeggiator, sequencer (a format 1 gives the defaults) */
+#define PROJ_FORMAT 3u                   /* 3: channel names; 2: banks, scale, arpeggiator, sequencer (a format 1 gives the defaults) */
 #define NKNOBS 4
 #define NBANKS 4
 #define NTRACKS 4
@@ -66,6 +66,7 @@ typedef struct {
     int8_t vel_curve;                    /* -5..+5: the velocity curve, 0 as measured (+ harder to reach 127) */
     int8_t at_sens;                      /* -5..+5: how far a lean goes for full aftertouch, 0 as measured */
     uint8_t ble_off;                     /* Bluetooth switched off (Setup, Bluetooth page); 0, the default: on */
+    char chan_name[16][6];               /* 5 alphanumeric chars + color 0..6 as the last character, one per MIDI channel */
     uint8_t rsv[9];                      /* room to grow */
 } project_t;
 

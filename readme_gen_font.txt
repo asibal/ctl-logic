@@ -1,0 +1,1 @@
+If you are building this on your machine, copy gen_font.py to base/tools/gen_font.py (replace it). This will generate the additonal FONT_XL that is used in this project. Otherwise the build will fail because it will look for that missing font.

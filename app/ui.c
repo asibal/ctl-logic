@@ -27,6 +27,8 @@
  * the TRS jack in -> USB and Bluetooth. The USB-only build (FM1B_BLE 0) shows no Bluetooth. */
 
 enum { V_PLAY, V_SCALE, V_ARP, V_SEQ, V_SOUND, V_SETUP, NVIEWS };
+static const char *const LOGIC_VERSION[1] = {"CTL-Logic"};
+
 static const char *const VIEW_NAME[NVIEWS] = {"Play", "Keys", "Arp", "Sequencer", "Sound", "Setup"};
 static const uint8_t VIEW_BTN[NVIEWS] = {B_HOME, B_SEL, B_ARP, B_SEQ, B_EDIT, B_GLO};
 static const char *const PORT_NAME[NPORTS] = {"USB", "BLE", "TRS"};
@@ -44,7 +46,9 @@ static const char *const GLOW_NAME[3] = {"Off", "Low", "High"};
 static const char *const AT_NAME[NAT] = {"Off", "Poly", "Channel"};
 #include "gm_names.h"
 #include "fastmath.h"
+#include <stdbool.h>
 #define KEY0_NOTE 53                   /* chromatic: F3 is key 0 at octave 0 */
+static bool LOGIC_MODE = true;
 #define SCALE0_NOTE 48                 /* a scale: its root from C3 at octave 0 */
 #define FLASH_MS 120u                  /* a port's light after a message */
 
@@ -60,13 +64,29 @@ static const uint8_t BLACK_K[11] = {1, 3, 5, 8, 10, 13, 15, 17, 20, 22, 25};
 #define K_DIM RGB(122, 128, 152)
 #define K_TEXT RGB(30, 43, 90)
 #define K_WHITE RGB(255, 255, 255)
-#define K_HOT RGB(229, 72, 46)
+
+// replace bright orange with black
+#define K_HOT RGB(0, 0, 0)
+
 #define K_HOT_T RGB(248, 211, 201)
 #define K_COOL RGB(217, 162, 27)
 #define K_COOL_T RGB(245, 228, 184)
 #define K_COOL_D RGB(158, 112, 6)
 #define K_KEYW RGB(255, 253, 248)
 #define K_KEYB RGB(30, 43, 90)
+
+// color map (0-6):
+#define K_BLUE RGB(49, 5, 210)
+#define K_TEAL RGB(0, 152, 163)
+#define K_GREEN RGB(136, 193, 0)
+#define K_RED RGB(255, 0, 60)
+#define K_ORANGE RGB(255, 138, 0)
+#define K_GREY RGB(51, 51, 51)
+#define K_BLACK RGB(0, 0, 0)
+static const uint16_t CHAN_COLOR[7] = {K_BLUE, K_TEAL, K_GREEN, K_RED, K_ORANGE, K_GREY, K_BLACK};
+static const char *const CHAN_COLOR_NAME[7] = {"Blue", "Teal", "Green", "Red", "Orange", "Grey", "Black"};
+
+
 
 enum { KM_NONE, KM_NOTES, KM_ARP };    /* what a held key did: sent notes, gave them to the arpeggiator */
 static struct {
@@ -85,6 +105,7 @@ static struct {
     uint32_t save_t;                   /* when SAVE went down; save_long: held long enough (Setup: Bluetooth) */
     uint8_t save_long;
     uint8_t fx_used;                   /* a knob turned while FX was held: no bank change at its release */
+    uint8_t chan_pos;                  /* cursor position (0..4) on Channel Names page */
     uint32_t fx_t;                     /* when FX went down */
     uint8_t dirty;
     uint32_t act_t;
@@ -203,6 +224,24 @@ static void synth_program(void) { ctl_send(pkt3(0xC0u | proj.chan, proj.program,
 
 static void send(uint32_t pkt, uint32_t to) { ctl_send(pkt, to); }   /* (fm1-base counts each port's messages) */
 static void play(uint32_t st, uint32_t d1, uint32_t d2) { send(pkt3(st | proj.chan, d1, d2), TO_USB | TO_BLE); }
+
+// same as play() but will not send out midi to USB, but it will still send BT
+static void playSound(uint32_t st, uint32_t d1, uint32_t d2) { send(pkt3(st | proj.chan, d1, d2), TO_BLE); }
+
+// plays a note using the woodblock instrument
+// regardless of what preset or channel you're at
+// this is used for universal sound effects,
+// because channel 10 forces the drum kit instrument.
+void playNote(uint32_t noteInt) {
+    // select melodic bank (CC 0 = 0x79 / 121) on channel 10 to clear drum kit mode
+    playSound(0xB0u, 0, 0x79);
+    // select preset 115 = woodblock
+    playSound(0xC0u, 115, 0);
+    playSound(0x90u, noteInt, 127);
+    playSound(0x80u, noteInt, 0);
+    // play D4 (C4 = 60)
+    // play D3 (C4 = 60)
+}
 
 static void cc(uint32_t num, uint32_t v)
 {
@@ -462,7 +501,8 @@ static uint32_t edge_vel(uint32_t k)
 /* what a knob edits: one of these */
 enum { K_VAL0, K_VAL1, K_VAL2, K_VAL3, K_CC0, K_CC1, K_CC2, K_CC3, K_ROOT, K_SCALE, K_VEL, K_HUMAN,
        K_AMODE, K_ARATE, K_AOCT, K_ARP, K_STEPS, K_HITS, K_ROT, K_NOTE, K_CLOCK, K_SEQCH, K_MASTER, K_GLOW,
-       K_TEMPO, K_SOUND, K_SNDIN, K_TOUCH, K_CURVE, K_ATM, K_ATS, K_DEV, K_BT, K_NONE };
+       K_TEMPO, K_SOUND, K_SNDIN, K_TOUCH, K_CURVE, K_ATM, K_ATS, K_DEV, K_BT,
+       K_CH_POS, K_CH_CHAR, K_CH_COLOR, K_NONE };
 static const uint8_t VIEW_KNOB[NVIEWS][4] = {
     {K_VAL0, K_VAL1, K_VAL2, K_VAL3},
     {K_ROOT, K_SCALE, K_VEL, K_HUMAN},
@@ -474,7 +514,34 @@ static const uint8_t VIEW_KNOB[NVIEWS][4] = {
 static const uint8_t TOUCH_KNOB[4] = {K_TOUCH, K_CURVE, K_ATM, K_ATS};   /* Setup's second page */
 /* Setup's third page (FM1B_BLE): a Bluetooth MIDI device (FM1B_BLE_CENTRAL), and Bluetooth on or off */
 static const uint8_t BT_KNOB[4] = {FM1B_BLE_CENTRAL ? K_DEV : K_NONE, K_NONE, K_NONE, K_BT};
-#define SETUP_PAGES (FM1B_BLE ? 3 : 2)
+#define SETUP_PG_CHNAME  (FM1B_BLE ? 3 : 2)    /* Channel Names page index */
+#define SETUP_PAGES      (SETUP_PG_CHNAME + 1)  /* 3 without BLE, 4 with BLE */
+static const uint8_t CHNAME_KNOB[4] = {K_CH_POS, K_CH_CHAR, K_CH_COLOR, K_NONE};
+/* channel name charset: space (0), A-Z (1-26), 0-9 (27-36) */
+static int char_to_idx(char c)
+{
+    if (c >= 'A' && c <= 'Z') return 1 + (c - 'A');
+    if (c >= '0' && c <= '9') return 27 + (c - '0');
+    return 0;
+}
+static char idx_to_char(int i)
+{
+    if (i <= 0) return ' ';
+    if (i <= 26) return (char)('A' + (i - 1));
+    return (char)('0' + (i - 27));
+}
+static char chan_name_str[6];
+static const char *chan_name(int ch)
+{
+    memcpy(chan_name_str, proj.chan_name[ch], 5);
+    chan_name_str[5] = 0;
+    return chan_name_str;
+}
+static int chan_color(int ch)
+{
+    uint8_t c = (uint8_t)proj.chan_name[ch][5];
+    return c <= 6u ? (int)c : 0;
+}
 /* Bluetooth in a word, for the ports, Setup and a screen reader: "off" (by the player), "stopped" (after a crash:
  * SAVE starts it), "starting", "failed", "connected" (a computer, or a device), "ready" */
 static int bt_stopped(void) { return FM1B_BLE && !proj.ble_off && plat_ble_state() == BLE_OFF; }
@@ -505,6 +572,8 @@ static int view_knob(int i)
         return K_CC0 + i;
     if (ui.view == V_SETUP && ui.setup_pg == 2)   /* (a device only while Bluetooth runs) */
         return i == 0 && (proj.ble_off || plat_ble_state() != BLE_READY) ? K_NONE : BT_KNOB[i];
+    if (ui.view == V_SETUP && ui.setup_pg == SETUP_PG_CHNAME)
+        return CHNAME_KNOB[i];
     if (ui.view == V_SETUP && ui.setup_pg)
         return TOUCH_KNOB[i];
     return VIEW_KNOB[ui.view][i];
@@ -545,6 +614,12 @@ static int knob_get(int k)
     case K_ATS: return proj.at_sens;
     case K_DEV: return btdev_pick();
     case K_BT: return !proj.ble_off;
+    case K_CH_POS:
+        return ui.chan_pos;
+    case K_CH_CHAR:
+        return char_to_idx(proj.chan_name[proj.chan][ui.chan_pos < 5 ? ui.chan_pos : 0]);
+    case K_CH_COLOR:
+        return chan_color(proj.chan);
     default: return 0;
     }
 }
@@ -572,6 +647,9 @@ static void knob_range(int k, int *lo, int *hi)
     case K_SEQCH: *hi = 15; break;
     case K_GLOW: *hi = 2; break;
     case K_NOTE: case K_VAL0: case K_VAL1: case K_VAL2: case K_VAL3: *hi = 127; break;
+    case K_CH_POS: *hi = 4; break;   /* 5 positions: 0..4 */
+    case K_CH_CHAR: *hi = 36; break;  /* space(0), A-Z(1-26), 0-9(27-36) */
+    case K_CH_COLOR: *hi = 6; break;  /* color map 0..6 */
     default: *hi = 119; break;           /* controller numbers, MASTER */
     }
 }
@@ -585,6 +663,12 @@ static void knob_name(int k, char *b)
         put_u(put_s(b, "CC "), proj.cc[proj.bank][k - K_VAL0]);
     else if (k <= K_CC3)
         put_u(put_s(b, "Knob "), (uint32_t)(k - K_CC0 + 1));
+    else if (k == K_CH_POS)
+        put_s(b, "Pos");
+    else if (k == K_CH_CHAR)
+        put_s(b, "Char");
+    else if (k == K_CH_COLOR)
+        put_s(b, "Color");
     else if (k < K_NONE)
         put_s(b, N[k - K_ROOT]);
     else
@@ -636,6 +720,15 @@ static void knob_text(int k, char *b)
             put_u(b, (uint32_t)v);
         break;
     case K_CC0: case K_CC1: case K_CC2: case K_CC3: put_u(put_s(b, "#"), (uint32_t)v); break;
+    case K_CH_POS: put_u(b, (uint32_t)v + 1u); break;
+    case K_CH_CHAR: {
+        char s[2] = {idx_to_char(v), 0};
+        put_s(b, s[0] == ' ' ? "spc" : s);
+        break;
+    }
+    case K_CH_COLOR:
+        put_s(b, CHAN_COLOR_NAME[v]);
+        break;
     default: put_u(b, (uint32_t)v); break;
     }
 }
@@ -654,12 +747,20 @@ static void knob_set(int k, int v)
 {
     int lo, hi;
     knob_range(k, &lo, &hi);
+    int old = knob_get(k);
     v = v < lo ? lo : v > hi ? hi : v;
-    if (v == knob_get(k))
+    if (v == old)
         return;
     if (k <= K_VAL3) {
         proj.val[proj.bank][k - K_VAL0] = (uint8_t)v;
-        cc(proj.cc[proj.bank][k - K_VAL0], (uint32_t)v);
+        
+        // send relative values on knobs 1-4
+        if ((k == K_VAL0 || k == K_VAL1 || k == K_VAL2 || k == K_VAL3) && LOGIC_MODE == true) {
+            cc(proj.cc[proj.bank][k - K_VAL0], v > 64 ? 127u : 1u);
+        } else {
+            cc(proj.cc[proj.bank][k - K_VAL0], (uint32_t)v);
+        }
+
     } else if (k <= K_CC3) {
         proj.cc[proj.bank][k - K_CC0] = (uint8_t)v;
     } else {
@@ -714,6 +815,16 @@ static void knob_set(int k, int v)
             plat_ble_enable(v);
             say("BLUETOOTH", v ? "ON" : "OFF");
             break;
+        case K_CH_POS:
+            ui.chan_pos = (uint8_t)v;
+            break;
+        case K_CH_CHAR:
+            if (ui.chan_pos < 5)
+                proj.chan_name[proj.chan][ui.chan_pos] = idx_to_char(v);
+            break;
+        case K_CH_COLOR:
+            proj.chan_name[proj.chan][5] = (char)v;
+            break;
         default: return;
         }
     }
@@ -765,7 +876,11 @@ static void bank_to(int b)                     /* the knob bank, with a word on 
 {
     char t[2] = {(char)('A' + b), 0};
     proj.bank = (uint8_t)b;
-    say_as("KNOB BANK", t, 0);                  /* a screen reader hears the page: the bank, its knobs */
+
+    // do not show bank change notification on relative mode
+    if (!LOGIC_MODE) {
+        say_as("KNOB BANK", t, 0);                  /* a screen reader hears the page: the bank, its knobs */
+    }
     ui.touched = -1;
     mark_dirty();
 }
@@ -774,6 +889,10 @@ static void button_down(int b)
 {
     switch (b) {
     case B_ENV: {                        /* a second press within ENV_TAP_MS locks; a press when locked unlocks */
+        if (LOGIC_MODE) {
+            cc(82, 127);
+            break;
+        }
         uint32_t now = plat_ms();
         if (ui.sus_lock) {
             ui.sus_lock = 0;             /* held now as usual: off at the release */
@@ -787,16 +906,46 @@ static void button_down(int b)
         ui.sustain = 1;
         break;
     }
-    case B_LFO: engine_mod(1); break;
-    case B_PLAY:
+    case B_LFO: 
+        if (LOGIC_MODE) {
+            cc(83, 127);
+            break;
+        }
+        engine_mod(1); break;   
+    case B_PLAY: 
+        if (LOGIC_MODE) {
+            cc(89, 127);
+            break;
+        }
         ui.playing = (uint8_t)!ui.playing;
         engine_play(ui.playing);
         put_s(ui.last, ui.playing ? "Start" : "Stop");
         break;
-    case B_REC: panic(); sp_event(SE_PANIC, 0, 0); break;
-    case B_OCTDN: octave(-1); break;
-    case B_OCTUP: octave(1); break;
-    case B_SAVE:
+    case B_REC: 
+        if (LOGIC_MODE) {
+            cc(90, 127);
+            break;
+        }
+        panic(); sp_event(SE_PANIC, 0, 0); break;
+    case B_OCTDN: 
+        if (LOGIC_MODE) {
+            cc(79, 127);
+            break;
+        }
+        octave(-1);
+        break;
+    case B_OCTUP:
+        if (LOGIC_MODE) {
+            cc(80, 127);
+            break;
+        }
+        octave(1);
+        break;
+    case B_SAVE: 
+        if (LOGIC_MODE) {
+            cc(86, 127);
+            break;
+        }
         ui.save_t = plat_ms();
         ui.save_long = 0;
         break;
@@ -813,24 +962,69 @@ static void button_up(int b)
 {
     switch (b) {
     case B_ENV:
+        if (LOGIC_MODE) {
+            break;
+        }
         if (ui.sus_lock)
             break;
         ui.sustain = 0;
         cc(64, 0);
         break;
-    case B_LFO: engine_mod(0); break;
+    case B_LFO: 
+        if (LOGIC_MODE) {
+            break;
+        }
+        engine_mod(0); break;
     case B_FX:
         if (!ui.fx_used)
             bank_to((proj.bank + 1) % NBANKS);
         ui.touched = -1;
         break;
-    case B_HOME: set_view(V_PLAY); break;
-    case B_SEL: set_view(V_SCALE); break;
-    case B_SEQ: set_view(V_SEQ); break;
-    case B_ARP: set_view(V_ARP); break;
-    case B_EDIT: set_view(V_SOUND); break;
-    case B_GLO: set_view(V_SETUP); break;
+    case B_HOME: 
+        if (ui.view == V_PLAY && !LOGIC_MODE) {
+            LOGIC_MODE = true;
+            bank_to(2);
+        } else {
+            LOGIC_MODE = false;
+            // force repaint the screen (clear cache signature)
+            memset(ui.sig, 0, sizeof(ui.sig));
+            set_view(V_PLAY);
+        }
+        break;
+    case B_SEL: 
+        if (LOGIC_MODE) {
+            cc(81, 127);
+            break;
+        }
+        set_view(V_SCALE); break;
+    case B_SEQ: 
+        if (LOGIC_MODE) {
+            cc(88, 127);
+            break;
+        }
+        set_view(V_SEQ); break;
+    case B_ARP: 
+        if (LOGIC_MODE) {
+            cc(87, 127);
+            break;
+        }
+        set_view(V_ARP); break;
+    case B_EDIT: 
+        if (LOGIC_MODE) {
+            cc(84, 127);
+            break;
+        }
+        set_view(V_SOUND); break;
+    case B_GLO: 
+        if (LOGIC_MODE) {
+            cc(85, 127);
+            break;
+        }
+        set_view(V_SETUP); break;
     case B_SAVE:
+        if (LOGIC_MODE) {
+            break;
+        }
         if (ui.save_long)
             break;                       /* held: started Bluetooth, no save */
         if (ui.view == V_SETUP && ui.setup_pg == 2 && bt_stopped()) {   /* stopped after a crash: start it */
@@ -902,18 +1096,72 @@ static void input(void)
     ui.keys = keys;
     for (i = 0; i < NKEYS; i++)
         if (ch >> i & 1u) {
-            if (ui.view != V_SEQ && touch_live && touch_sensed(i))
-                continue;                        /* touch.c plays it (touch_events) */
-            if (keys >> i & 1u) {
-                if (ui.view == V_SEQ)
-                    seq_key((int)i);
-                else
-                    key_down((int)i, edge_vel(i));
+
+            // keys will just send cc's 101 - 127 in logic mode
+            if (LOGIC_MODE) {
+                if (keys >> i & 1u) {
+                    uint32_t key_idx = (uint32_t)i + 1u;
+
+                    // if cc_num exceeds 127, just send zero
+                    uint32_t cc_num = key_idx + 100u;
+                    if (cc_num > 127u)
+                        cc_num = 0;
+
+                    cc(cc_num, 127);
+
+                    // key 21 will toggle between bank D and C
+                    if (key_idx == 21) {
+                        // bank A
+                        playNote(50);
+                        bank_to(0);
+                    } else if (key_idx == 23) {
+                        // bank B
+                        playNote(50);
+                        bank_to(1);
+                    } else if (key_idx == 26) {
+                        // key 26 will toggle bank C & D
+                        if (proj.bank == 2) {
+                            // if current is bank C (default, switch to D)
+                            // play D3 (C4 = 60)
+                            playNote(50);
+                            bank_to(3);
+                        } else {
+                            // if from bank A, B, D, switch back to C (default)
+                            // play D4 (C4 = 60)
+                            playNote(62);
+                            bank_to(2);
+                        }
+                    } else {
+                        playNote(50);
+                    }
+
+                }
+
             } else {
-                key_up((int)i);
+
+                if (ui.view != V_SEQ && touch_live && touch_sensed(i))
+                    continue;                        /* touch.c plays it (touch_events) */
+
+                if (keys >> i & 1u) {
+                    if (ui.view == V_SEQ) {
+                        seq_key((int)i);
+                    } else {
+                        key_down((int)i, edge_vel(i));
+                    }
+                } else {
+                    key_up((int)i);
+                }
+
             }
+
+
         }
-    touch_events();
+
+    if (!LOGIC_MODE) {
+        // disable keys on logic mode
+        touch_events();
+    }
+    
     ch = btn ^ ui.btn;
     ui.btn = btn;
     for (i = 0; i < NB; i++)
@@ -929,7 +1177,10 @@ static void input(void)
     master_pot();
     if ((e = plat_enc(EN_SELECT)) != 0) {        /* the page's pages, as X0X (the dots on the knob row) */
         int d = e > 0 ? 1 : -1;
-        if (ui.view == V_PLAY && proj.bank + d >= 0 && proj.bank + d < NBANKS) {
+        if (ui.view == V_PLAY && LOGIC_MODE == true) {
+            uint32_t rel = e > 0 ? 1u : 127u;
+            cc(100, rel);
+        } else if (ui.view == V_PLAY && proj.bank + d >= 0 && proj.bank + d < NBANKS) {
             bank_to(proj.bank + d);
         } else if (ui.view == V_SEQ && ui.track + d >= 0 && ui.track + d < NTRACKS) {
             ui.track = (uint8_t)(ui.track + d);
@@ -948,22 +1199,64 @@ static void input(void)
         }
     }
     if ((e = plat_enc(EN_ALGO)) != 0) {
-        int c = clamp(proj.chan + e, 0, 15);
-        if (c != proj.chan) {
-            all_keys_up();               /* held notes end on the channel they started on */
-            engine_panic();
-            proj.chan = (uint8_t)c;
-            synth_program();
-            mark_dirty();
+
+        if (ui.view == V_PLAY && LOGIC_MODE == true) {
+            uint32_t rel = e > 0 ? 1u : 127u;
+            cc(99, rel);
+
+        } else {
+            int c = clamp(proj.chan + e, 0, 15);
+            if (c != proj.chan) {
+                all_keys_up();               /* held notes end on the channel they started on */
+                engine_panic();
+                proj.chan = (uint8_t)c;
+                synth_program();
+                if (LOGIC_MODE) {
+                    // play C5 (C4 = 60) or G4, A4
+                    playNote(72);
+                    /* notify channel change on DAW? */
+                    //cc(127, 1);
+                    /* always switch to bank C after changing channel */
+                    bank_to(2);
+                }
+                mark_dirty();
+                if (ui.view == V_SETUP && ui.setup_pg == SETUP_PG_CHNAME)
+                    ui.touched = -1;         /* reset character highlight on channel change */
+            }
         }
     }
     if ((e = plat_enc(EN_PRESET)) != 0) {
-        int p = clamp(proj.program + e, 0, 127);
-        if (p != proj.program) {
-            proj.program = (uint8_t)p;
-            play(0xC0u, (uint32_t)p, 0);
-            prog_name(put_s(put_u(ui.last, (uint32_t)p + 1u), " "), p);
-            mark_dirty();
+
+        // use Presets Knob as channel changer if:
+        // LOGIC mode or on channel name setup page
+        if ((ui.view == V_PLAY && LOGIC_MODE == true) || (ui.view == V_SETUP && ui.setup_pg == 3)) {
+            int c = clamp(proj.chan + e, 0, 15);
+            if (c != proj.chan) {
+                all_keys_up();               /* held notes end on the channel they started on */
+                engine_panic();
+                proj.chan = (uint8_t)c;
+                synth_program();
+                if (LOGIC_MODE) {
+                    // play C5 (C4 = 60) or G4, A4
+                    playNote(72);
+                    /* notify channel change on DAW? */
+                    //cc(127, 1);
+                    /* always switch to bank C after changing channel */
+                    bank_to(2);
+                }
+                mark_dirty();
+                if (ui.view == V_SETUP && ui.setup_pg == SETUP_PG_CHNAME)
+                    ui.touched = -1;         /* reset character highlight on channel change */
+            }
+
+        } else {
+            int p = clamp(proj.program + e, 0, 127);
+            if (p != proj.program) {
+                proj.program = (uint8_t)p;
+                play(0xC0u, (uint32_t)p, 0);
+                prog_name(put_s(put_u(ui.last, (uint32_t)p + 1u), " "), p);
+                mark_dirty();
+            }
         }
     }
     for (i = 0; i < 4; i++)
@@ -973,8 +1266,19 @@ static void input(void)
                 ui.fx_used = 1;
             k = view_knob((int)i);
             if (k != K_NONE) {
-                knob_range(k, &lo, &hi);
-                knob_set(k, knob_get(k) + accel(EN_K1 + (int)i, e, hi - lo));
+                
+                // send relative values on knobs 1-4
+                if ((k == K_VAL0 || k == K_VAL1 || k == K_VAL2 || k == K_VAL3) && LOGIC_MODE == true) {
+                    int steps = e < 0 ? -e : e;
+                    uint32_t val = e > 0 ? 1u : 127u;
+                    while (steps-- > 0)
+                        cc(proj.cc[proj.bank][k - K_VAL0], val);
+                    proj.val[proj.bank][k - K_VAL0] = (uint8_t)val;
+                    mark_dirty();
+                } else {
+                    knob_range(k, &lo, &hi);
+                    knob_set(k, knob_get(k) + accel(EN_K1 + (int)i, e, hi - lo));
+                }
             }
             ui.touched = (int8_t)i;
             ui.touch_until = plat_ms() + 1200u;
@@ -1025,6 +1329,49 @@ static void text_c(int32_t cx, int32_t y, const felucca_font_t *f, const char *s
 static void text_r(int32_t rx, int32_t y, const felucca_font_t *f, const char *s, uint16_t c)
 {
     cv_text(rx - text_w(f, s), y, f, s, c);
+}
+
+/* fill the entire screen with bg and draw str centred in FONT_XL */
+static void show_channel_name(const char *str, uint16_t fg, uint16_t bg)
+{
+
+    // this rectangle fill replaces the draw_knobs area
+    cv_begin(240, KNB_H, CHAN_COLOR[chan_color(proj.chan)]);
+    if (proj.bank == 0) {
+        cv_rect(30, 5, 70, 26, K_WHITE);
+    } else if (proj.bank == 1) {
+        cv_rect(140, 5, 70, 26, K_WHITE);
+    } else if (proj.bank == 3) {
+        cv_rect(30, 5, 180, 26, K_WHITE);
+    }
+    cv_text(10, 42, &FONT_B, ui.last[0] ? ui.last : "", K_WHITE);
+
+    char buf[64];
+    char temp[16];
+    char *b = buf;
+    int cc_knobs[4] = {K_CC0, K_CC1, K_CC2, K_CC3};
+    b = put_s(b, "Knob CC: ");
+    // test length
+    // b = put_s(b, "Knob CC: #127 #127 #127 #127");
+
+    for (int i = 0; i < 4; i++) {
+        if (i > 0) {
+            b = put_s(b, " ");  // Append separator between items
+        }
+        knob_text(cc_knobs[i], temp); // Get text for the specific knob into temp buffer
+        b = put_s(b, temp);           // Append the knob text to our main buffer
+    }
+    cv_text(10, 60, &FONT_B, buf, K_WHITE);
+
+    cv_blit(0, KNB_Y);
+
+    int32_t tw = text_w(&FONT_XL, str);
+    // bg size width x height
+    cv_begin(240, 140, bg);
+    // text position inside bg left, top
+    cv_text((240 - tw) / 2, 60, &FONT_XL, str, fg);
+    // position left, top
+    cv_blit(0, 20);
 }
 
 /* ---- from X0X: text centred on its capitals, and anti-aliased shapes (coverage 0..16, blended over
@@ -1182,7 +1529,13 @@ static void draw_header(void)
         cv_blit(0, 0);
         return;
     }
-    x = cv_text(4, vc(&FONT_B, 1, 17), &FONT_B, VIEW_NAME[ui.view], K_TEXT) + 6;
+
+    const char *view_label = VIEW_NAME[ui.view];
+    if (LOGIC_MODE) {
+        view_label = LOGIC_VERSION[0];
+    }
+
+    x = cv_text(4, vc(&FONT_B, 1, 17), &FONT_B, view_label, K_TEXT) + 6;
     if (ui.view == V_PLAY) {                     /* the knob bank, in a chip */
         char b[2] = {(char)('A' + proj.bank), 0};
         int32_t w = text_w(&FONT_B, b) + 10;
@@ -1271,9 +1624,11 @@ static void draw_ports(int32_t y0)
 
 static void draw_play(void)
 {
-    cv_text(12, 4, &FONT_B, ui.last[0] ? ui.last : "Play a key", ui.last[0] ? K_TEXT : K_DIM);
-    draw_keys(32, 46);
-    draw_ports(86);
+    cv_text(12, 4, &FONT_B, ui.last[0] ? ui.last : "Press Home to go to Play Mode", ui.last[0] ? K_TEXT : K_DIM);
+    if (!LOGIC_MODE) {
+        draw_keys(32, 46);
+        draw_ports(86);
+    }
 }
 
 static void draw_scale(void)
@@ -1471,12 +1826,41 @@ static void draw_bt(void)
         cv_text(10, 61, &FONT_XS, "Put the device in pairing mode.", K_DIM);
 }
 
+/* Setup's Channel Names page: 5-char names for all 16 channels.
+ * KNOB 1 moves cursor, KNOB 2 picks character, KNOB 3 picks color */
+static void draw_chan_names(void)
+{
+    int i, col = chan_color(proj.chan);
+    const char *name = chan_name(proj.chan);
+    char nm[6];
+    memcpy(nm, name, 6);
+    cv_text(10, 2, &FONT_S, "Channel Name", K_TEXT);
+    cv_round(214, 2, 16, 16, 3, CHAN_COLOR[col]);
+    /* draw 5 character slots across the middle of the screen (5 * 40 + 4 * 6 = 224 px) */
+    for (i = 0; i < 5; i++) {
+        int32_t x = 8 + i * 46;
+        int active = (i == (int)ui.chan_pos);
+        char ch[2] = {nm[i], 0};
+        /* slot background: highlight the cursor position */
+        cv_round(x, 28, 40, 56, 6, active ? K_COOL_T : K_PANEL);
+        /* character label */
+        cv_text(x + (40 - text_w(&FONT_XL, ch)) / 2,
+                vc(&FONT_XL, 28, 56), &FONT_XL, ch,
+                active ? K_COOL_D : K_TEXT);
+    }
+    cv_text(10, 96, &FONT_XS, "ALGO: channel   K1: cursor   K2: char   K3: color", K_DIM);
+}
+
 static void draw_setup(void)                     /* the settings below; what the ports have carried here */
 {
     char t[40], *b;
     int32_t y = 24;
     if (ui.setup_pg == 2) {
         draw_bt();
+        return;
+    }
+    if (ui.setup_pg == SETUP_PG_CHNAME) {
+        draw_chan_names();
         return;
     }
     if (ui.setup_pg) {
@@ -1557,6 +1941,10 @@ static void draw_main(void)
         h = hash(h, (uint32_t)plat_ble_device() | (uint32_t)proj.ble_off << 4 | (uint32_t)btdev_pick() << 8);
         for (k = 0; k < 4 && plat_ble_found(k, name, &rssi); k++)
             h = hash(hash_s(h, name), (uint32_t)bt_bars(rssi));
+    } else if (ui.view == V_SETUP && ui.setup_pg == SETUP_PG_CHNAME) {
+        h = hash_s(h, chan_name(proj.chan));
+        h = hash(h, (uint32_t)proj.chan | (uint32_t)ui.chan_pos << 8 | (uint32_t)ui.touched << 16 |
+                         (uint32_t)chan_color(proj.chan) << 24);
     } else if (ui.view == V_SETUP && ui.setup_pg) {
         uint32_t k, top = 0;
         for (k = 0; k < NKEYS; k++)
@@ -1569,7 +1957,10 @@ static void draw_main(void)
     if (h == ui.sig[1])
         return;
     ui.sig[1] = h;
+
+    //MAIN BG COLOR
     cv_begin(240, MAIN_H, K_BG);
+
     switch (ui.view) {
     case V_PLAY: draw_play(); break;
     case V_SCALE: draw_scale(); break;
@@ -1630,6 +2021,8 @@ static void knob_tag(char *t, int *dots, int *cur)
     } else if (ui.view == V_SETUP) {
         if (ui.setup_pg == 2)
             put_s(t, "BLUETOOTH");
+        else if (ui.setup_pg == SETUP_PG_CHNAME)
+            put_s(t, "CHANNEL NAMES");
         else if (ui.setup_pg)
             put_s(t, "TOUCH");
         *dots = SETUP_PAGES;
@@ -1663,6 +2056,12 @@ static void footer_text(const char **a, const char **b, const char **c)
             }
             break;
         }
+        if (ui.setup_pg == SETUP_PG_CHNAME) {
+            *a = "SELECT: SETUP";
+            *b = "ALGO: CHANNEL";
+            *c = "K1: POS  K2: CHAR";
+            break;
+        }
         if (ui.setup_pg) {
             *a = "SELECT: SETUP";
             *b = "CURVE +: FIRMER";
@@ -1677,7 +2076,7 @@ static void footer_text(const char **a, const char **b, const char **c)
 static int knob_switch(int k)                    /* a few named positions: pips, not an arc */
 {
     return k == K_ARP || k == K_CLOCK || k == K_GLOW || k == K_SOUND || k == K_SNDIN || k == K_AOCT ||
-           k == K_TOUCH || k == K_ATM || k == K_BT;
+           k == K_TOUCH || k == K_ATM || k == K_BT || k == K_CH_COLOR;
 }
 
 static void draw_knobs(void)
@@ -1694,7 +2093,9 @@ static void draw_knobs(void)
     if (h == ui.sig[2])
         return;
     ui.sig[2] = h;
+
     cv_begin(240, KNB_H, K_BG);
+    
     {   /* the rule; at its right end the tag, then the dots */
         int32_t xd, xt;
         knob_tag(t, &dots, &cur);
@@ -1719,16 +2120,19 @@ static void draw_knobs(void)
         int k = view_knob((int)i), lo, hi, v;
         int32_t cx = (int32_t)i * 60 + 30;
         int hot = now_touch && ui.touched == (int)i;
+
         if (i)
             cv_rect((int32_t)i * 60, 14, 1, 50, K_LINE);
         if (k == K_NONE)
             continue;
         if (hot)
             cv_round((int32_t)i * 60 + 2, 11, 56, 56, 6, K_PANEL);
+        
         knob_range(k, &lo, &hi);
         v = knob_get(k);
         knob_name(k, t);
         text_c(cx, vc(&FONT_XS, 13, 10), &FONT_XS, t, hot ? K_TEXT : K_DIM);
+
         if (knob_switch(k)) {                    /* its positions as pips */
             int n = hi - lo + 1, q, pw = 6, gap = 2, w0 = n * (pw + gap) - gap;
             for (q = 0; q < n; q++)
@@ -1739,6 +2143,7 @@ static void draw_knobs(void)
         knob_text(k, t);
         text_c(cx, vc(text_w(&FONT_B, t) > 56 ? &FONT_XS : &FONT_B, 53, 13), text_w(&FONT_B, t) > 56 ? &FONT_XS : &FONT_B, t,
                hot ? K_HOT : K_TEXT);
+
     }
     cv_blit(0, KNB_Y);
 }
@@ -1962,6 +2367,10 @@ static void sp_page(void)
             sp_num((uint32_t)btdev_count());
             sp_cat(btdev_count() == 1 ? " device found" : " devices found");
         }
+        return;
+    }
+    if (ui.view == V_SETUP && ui.setup_pg == SETUP_PG_CHNAME) {
+        sp_cat("Channel Names page");
         return;
     }
     if (ui.view == V_SETUP && ui.setup_pg) {
@@ -2387,6 +2796,7 @@ static void speak_dump(void)
 void ui_init(void)
 {
     memset(&ui, 0, sizeof ui);
+
     ui.touched = -1;
     ui.master_sent = -1;
     ui.master_raw = (int32_t)plat_master();
@@ -2403,14 +2813,23 @@ void ui_frame(void)
     dev_scan();
     autosave();
     draw_header();
-    plat_yield();
-    draw_main();
-    plat_yield();
-    draw_status();
-    draw_knobs();
-    leds();
-    speak();                             /* a screen reader: what changed (announce.c) */
-    ann_tick(plat_ms());
+
+    if (LOGIC_MODE) {
+        const char *name = chan_name(proj.chan);
+        show_channel_name(name, K_WHITE, CHAN_COLOR[chan_color(proj.chan)]);
+
+    } else {
+        plat_yield();
+        draw_main();
+        plat_yield();
+        draw_status();
+        draw_knobs();
+
+        leds();
+        speak();                             /* a screen reader: what changed (announce.c) */
+        ann_tick(plat_ms());
+    }
+
     ui.frame++;
 }
 
