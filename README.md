@@ -26,8 +26,13 @@ Everything from the original CTL-1 custom firmware is still there. Press the Hom
 **All buttons send CC's**
 - All buttons send CC's, including the keyboard midi buttons (hardcoded CC's). Keyboard midi notes still work on CTL-1 Play Mode.
 
-**Suggested use**
+**Tips**
 - Use one app or plugin per channel. You have 16 channels with 4 banks each.
+- Use keys 21, 23, 25 (the last black keys) to quickly switch banks A, B, C. Key 25 will only toggle bank C & D which is useful if you only need 2 banks.
+- Whenever you switch channels, it will go back to bank C as default. This is because bank A & B is mainly used by the CTL-1 keyboard, but you can still use it.
+- To edit the channel names and colors, press Home > Global Settings > Use Select Knob to navigate to Channel Names. Use Preset Knob to select channel. Use Knob 1 as cursor, Knob 2 as character selector, Knob 3 as color selector.
+- Since Logic 12, you can now control multiple instances of the same plugin and control them using different CC's. You will have to map each instances (e.g. first instance, second instance as needed). Use a different channel for each instance. That's why the default channel names have EQ 1, EQ 2, etc.
+- I suggest using the default CC's so you won't lose all your Logic controller assignments if you have to re-flash the firmware. Remember to also save your Logic controller assignments to a file.
 
 # Everything below is from the original CTL-1 project:
 
