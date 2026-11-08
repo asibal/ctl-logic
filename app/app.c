@@ -66,8 +66,8 @@ void app_splash(void)                    /* ui.c's paper and ink */
     lcd_fill(0, 0, 240, 240, RGB(0, 0, 0));
     cv_begin(240, 64, RGB(0, 0, 0));
     {
-        int32_t w = text_w(&FONT_M, APP_NAME);
-        cv_text((240 - w) / 2, 0, &FONT_M, APP_NAME, RGB(255, 255, 255));
+        int32_t w = text_w(&FONT_L, APP_NAME);
+        cv_text((240 - w) / 2, 0, &FONT_L, APP_NAME, RGB(0, 255, 55));
         // cv_rect((240 - w) / 2, 37, w, 2, RGB(255, 251, 55));
         // w = text_w(&FONT_S, APP_TAGLINE);
         // cv_text((240 - w) / 2, 44, &FONT_S, APP_TAGLINE, RGB(255, 255, 255));

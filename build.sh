@@ -10,12 +10,21 @@ set -e
 cd "$(dirname "$0")"
 
 cleanup() {
-    git -C base checkout -- device/main_fm1.c 2>/dev/null || true
+    git -C base checkout -- device/main_fm1.c tools/gen_font.py 2>/dev/null || true
+    rm -f base/assets/fonts/Bytesized-Regular.ttf
 }
 trap cleanup EXIT INT TERM
 
 if [ -f app/main_fm1.c ]; then
     cp app/main_fm1.c base/device/main_fm1.c
+fi
+
+if [ -f app/gen_font.py ]; then
+    cp app/gen_font.py base/tools/gen_font.py
+fi
+
+if [ -f app/Bytesized-Regular.ttf ]; then
+    cp app/Bytesized-Regular.ttf base/assets/fonts/Bytesized-Regular.ttf
 fi
 
 export JIELI_TOOLCHAIN="${JIELI_TOOLCHAIN:-$HOME/.jieli/toolchain}"

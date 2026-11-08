@@ -18,7 +18,7 @@ o2 = ["dsp/gm.c", "dsp/eas/eas_chorus.c", "dsp/eas/eas_chorusdata.c", "dsp/eas/e
       "dsp/eas/eas_smf.c", "dsp/eas/eas_smfdata.c", "dsp/eas/eas_sndlibmgt.c", "dsp/eas/eas_voicemgt.c",
       "dsp/eas/eas_wtengine.c", "dsp/eas/eas_wtsynth.c", "dsp/eas/wt_200k_G.c"]
 # custom generators
-gen = ["tools/gen_app_fonts.py {gen}/felucca_font.h"]
+# gen = ["tools/gen_app_fonts.py {gen}/felucca_font.h"]
 # the site
 tagline = "A MIDI controller for the FM-1"
 repo = "https://github.com/charlesvestal/fm1-ctl"
