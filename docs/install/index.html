@@ -40,6 +40,9 @@
   .site nav { margin-left: auto; display: flex; flex-wrap: wrap; gap: .2rem 1rem; font-size: .92rem; }
   .site nav a { color: var(--fg); text-decoration-color: var(--accent); text-underline-offset: 3px; }
   .site nav a[aria-current] { text-decoration: none; color: var(--accent); }
+  .hide {
+    display: none;
+  }
 </style>
 </head>
 <body>
@@ -62,23 +65,23 @@
   <div id="live" role="status" class="sr"></div>
   <div id="alert" role="alert" class="sr"></div>
   <pre id="log"></pre>
-  <h2 data-t="stockh"></h2>
-  <p class="small" data-t="stockwhy"></p>
-  <ol class="small">
+  <h2 data-t="stockh" class="hide"></h2>
+  <p class="small hide" data-t="stockwhy"></p>
+  <ol class="small hide">
     <li><span data-t="stock1"></span> <a id="stocklink" href="https://yms-file-store.oss-cn-hongkong.aliyuncs.com/software/firmware/FM-1.fwsc" style="color:inherit">FM-1.fwsc</a></li>
     <li><label for="stockfile" data-t="stock2"></label><br><input type="file" id="stockfile" accept=".fwsc" aria-describedby="stockmsg">
       <span id="stockmsg" style="display:block"></span></li>
     <li data-t="stock3"></li>
   </ol>
-  <p><button id="stockgo" type="button" disabled data-t="stockinstall"></button></p>
-  <h2 data-t="reporth">Report a problem</h2>
-  <p class="small" data-t="reportwhy"></p>
-  <p><button type="button" id="reportgo" data-t="reportread">Read the crash report</button>
+  <p class="hide"><button id="stockgo" type="button" disabled data-t="stockinstall"></button></p>
+  <h2 data-t="reporth" class="hide">Report a problem</h2>
+  <p class="small hide" data-t="reportwhy"></p>
+  <p class="hide"><button type="button" id="reportgo" data-t="reportread">Read the crash report</button>
     <button type="button" id="reportcopy" hidden data-t="reportcopy">Copy</button></p>
-  <p id="reportstatus" role="status"></p>
-  <label class="sr" for="report" data-t="reportlabel">Crash report</label>
+  <p id="reportstatus" role="status" class="hide"></p>
+  <label class="sr" for="report" data-t="reportlabel" class="hide">Crash report</label>
   <textarea id="report" readonly hidden rows="14"></textarea>
-  <p><a href="../" style="color:inherit" data-t="manual"></a></p>
+  <p class="hide"><a href="../" style="color:inherit" data-t="manual"></a></p>
   <p class="small">CTL-1 is built on Felucca by Leo Kuroshita (@kurogedelic), <a href="https://hugelton.com" target="_blank" rel="noopener" style="color:inherit">Hügelton Instruments<span class="sr" data-t="newtab"></span></a>,
     by way of fm1-base and felucca-bsp. Its General MIDI sounds are Sonivox EAS (Apache-2.0); Bluetooth runs on JieLi's libraries (Apache-2.0).<br>
     Fonts: Barlow Semi Condensed (SIL OFL 1.1). M-VAVE and FM-1 are trademarks of their respective owners.<br>
@@ -430,8 +433,8 @@ const TEXT = {
     reportok: "読み込みました。コピーして送ってください。", reportcopied: "コピーしました。",
   },
   en: {
-    intro: "Connect the FM-1 by USB. (Works in Chrome or Edge.)",
-    perm: "When you press Install, the browser asks to let this page use MIDI devices: allow it.",
+    intro: "IMPORTANT WARNING ABOUT BRICKING: For your own safety, please install m-bootloader on your device first, and make a backup. You can install m-bootloader using the m-flasher desktop app. This will allow you to restore your backup in case your device gets bricked. Make sure you know what you are doing before proceeding. I have only tested this on my own device. Install at your own risk. Thank you!",
+    perm: "Connect the FM-1 by USB. (Works in Chrome or Edge.). When you press Install, the browser asks to let this page use MIDI devices: allow it.",
     newtab: " (opens in a new tab)", progress: "Install progress",
     percent: "percent",
     warn: "Do not unplug the USB cable while writing.",
