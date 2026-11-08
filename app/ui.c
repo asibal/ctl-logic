@@ -26,8 +26,10 @@
  * Out: everything played goes to USB and Bluetooth. Thru: USB in -> Bluetooth, Bluetooth in -> USB,
  * the TRS jack in -> USB and Bluetooth. The USB-only build (FM1B_BLE 0) shows no Bluetooth. */
 
+#define LOGIC_HEADER_TITLE "CTL-Logic"
+#define LOGIC_SETTINGS_VERSION "CTL-1 1.0.3 / CTL-Logic 0.2"
+
 enum { V_PLAY, V_SCALE, V_ARP, V_SEQ, V_SOUND, V_SETUP, NVIEWS };
-static const char *const LOGIC_VERSION[1] = {"CTL-Logic"};
 
 static const char *const VIEW_NAME[NVIEWS] = {"Play", "Keys", "Arp", "Sequencer", "Sound", "Setup"};
 static const uint8_t VIEW_BTN[NVIEWS] = {B_HOME, B_SEL, B_ARP, B_SEQ, B_EDIT, B_GLO};
@@ -1738,7 +1740,7 @@ static void draw_header(void)
 
     const char *view_label = VIEW_NAME[ui.view];
     if (LOGIC_MODE) {
-        view_label = LOGIC_VERSION[0];
+        view_label = LOGIC_HEADER_TITLE;
     }
 
     x = cv_text(4, vc(&FONT_B, 1, 17), &FONT_B, view_label, K_TEXT) + 6;
@@ -2121,7 +2123,7 @@ static void draw_setup(void)                     /* the settings below; what the
         return;
     }
     cv_text(10, 2, &FONT_S, "MIDI", K_TEXT);
-    cv_text(236 - text_w(&FONT_XS, "CTL-1 " APP_VERSION), 4, &FONT_XS, "CTL-1 " APP_VERSION, K_DIM);
+    cv_text(236 - text_w(&FONT_XS, LOGIC_SETTINGS_VERSION), 4, &FONT_XS, LOGIC_SETTINGS_VERSION, K_DIM);
     b = put_u(put_s(t, "USB   in "), plat_midi_count(PORT_USB, 0));
     put_u(put_s(b, "   out "), plat_midi_count(PORT_USB, 1));
     cv_text(10, y, &FONT_XS, t, K_DIM);
