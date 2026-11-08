@@ -8,14 +8,21 @@
 #   PYTHON           a Python with Pillow (and libraqm, for the fonts)
 set -e
 cd "$(dirname "$0")"
+
+cleanup() {
+    git -C base checkout -- device/main_fm1.c 2>/dev/null || true
+}
+trap cleanup EXIT INT TERM
+
+if [ -f app/main_fm1.c ]; then
+    cp app/main_fm1.c base/device/main_fm1.c
+fi
+
 export JIELI_TOOLCHAIN="${JIELI_TOOLCHAIN:-$HOME/.jieli/toolchain}"
 export AC79_SDK="${AC79_SDK:-$HOME/fw-AC79_AIoT_SDK}"
 PY="${PYTHON:-python3}"
 [ -f base/tools/build.py ] || { echo "build.sh: no fm1-base in base/ (git submodule update --init --recursive)"; exit 1; }
 "$PY" -c 'import PIL' 2>/dev/null || { echo "build.sh: $PY has no Pillow (pip3 install Pillow)"; exit 1; }
-case " $* " in
-    *" --web "*)                            # the emulator: fm1-base's page with CTL-1's bits (tools/emu_page.py)
-        "$PY" base/tools/build.py app "$@"
-        exec "$PY" tools/emu_page.py;;
-esac
-exec "$PY" base/tools/build.py app "$@"
+"$PY" base/tools/build.py app "$@"
+status=$?
+exit $status

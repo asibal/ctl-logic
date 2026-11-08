@@ -15,7 +15,7 @@ sys.path.insert(0, str(BASE_TOOLS))
 import gen_font
 
 CUSTOM_SIZES = [
-    ("XL", "BarlowSemiCondensed-Bold.ttf", 60, 1, False, 32, 95),
+    ("XL", "BarlowSemiCondensed-Bold.ttf", 60, 1, False, 32, 90),
 ]
 
 def main(header_path):
