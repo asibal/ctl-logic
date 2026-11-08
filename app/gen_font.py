@@ -38,7 +38,10 @@ FONTSETS = {
                ("S", "BarlowSemiCondensed-Medium.ttf", 15, 1, False, 32, 126),
                ("B", "BarlowSemiCondensed-Bold.ttf", 15, 1, False, 32, 126),
                ("M", "BarlowSemiCondensed-SemiBold.ttf", 23, 1, False, 32, 95),
-               ("L", "Bytesized-Regular.ttf", 31, 1, False, 32, 90),
+               # reduce charset to 84 to save size.
+               # FONT_L is only used on CTL-LOGIC start screen
+               # make the size smaller to recover space.
+               ("L", "Bytesized-Regular.ttf", 35, 1, False, 32, 84),
                ("XL", "BarlowSemiCondensed-Bold.ttf", 60, 1, False, 32, 90)],    # capitals and digits, as the others
                                                                                   # (the splash, the panel: 14 KB less)
     "inter": [("T", "Inter[opsz,wght].ttf@wght=600", 9, 1, False, 32, 95),

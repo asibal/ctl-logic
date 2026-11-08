@@ -68,11 +68,8 @@ void app_splash(void)                    /* ui.c's paper and ink */
     {
         int32_t w = text_w(&FONT_L, APP_NAME);
         cv_text((240 - w) / 2, 0, &FONT_L, APP_NAME, RGB(0, 255, 55));
-        // cv_rect((240 - w) / 2, 37, w, 2, RGB(255, 251, 55));
-        // w = text_w(&FONT_S, APP_TAGLINE);
-        // cv_text((240 - w) / 2, 44, &FONT_S, APP_TAGLINE, RGB(255, 255, 255));
     }
-    cv_blit(0, 92);
+    cv_blit(0, 112);
 }
 
 #ifdef PLAT_HOST

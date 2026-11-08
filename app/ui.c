@@ -3079,6 +3079,16 @@ void ui_init(void)
 static void dev_scan(void);
 void ui_frame(void)
 {
+
+    // use this to test start screen:
+    // lcd_fill(0, 0, 240, 240, RGB(0, 0, 0));
+    // cv_begin(240, 64, RGB(0, 0, 0));
+    // {
+    //     int32_t w = text_w(&FONT_L, APP_NAME);
+    //     cv_text((240 - w) / 2, 0, &FONT_L, APP_NAME, RGB(0, 255, 55));
+    // }
+    // cv_blit(0, 112);
+
     input();
     dev_scan();
     autosave();
